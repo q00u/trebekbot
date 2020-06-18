@@ -159,10 +159,12 @@ def process_answer(params)
         reply = "Time's up, #{get_slack_name(user_id)}! Remember, you have #{ENV["SECONDS_TO_ANSWER"]} seconds to answer. The correct answer is `#{current_question["answer"]}`."
       end
       mark_question_as_answered(params[:channel_id])
+      reply += "\n" + respond_with_question(params)
     elsif is_question_format?(user_answer) && is_correct_answer?(current_answer, user_answer)
       score = update_score(user_id, current_question["value"])
       reply = "That is correct, #{get_slack_name(user_id)}. Your total score is #{currency_format(score)}."
       mark_question_as_answered(params[:channel_id])
+      reply += "\n" + respond_with_question(params)
     elsif is_correct_answer?(current_answer, user_answer)
       score = update_score(user_id, (current_question["value"] * -1))
       reply = "That is correct, #{get_slack_name(user_id)}, but responses have to be in the form of a question. Your total score is #{currency_format(score)}."
