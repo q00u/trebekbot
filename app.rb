@@ -193,7 +193,7 @@ end
 # (I don't care if there's no question mark)
 # 
 def is_question_format?(answer)
-  answer.gsub(/[^\w\s]/i, "").match(/^(what|whats|where|wheres|who|whos) /i)
+  answer.gsub(/[^\w\s]/i, "").match(question_words)
 end
 
 # Checks if the user answer matches the correct answer.
@@ -213,7 +213,7 @@ def is_correct_answer?(correct, answer)
   answer = answer
            .gsub(/\s+(&nbsp;|&)\s+/i, " and ")
            .gsub(/[^\w\s]/i, "")
-           .gsub(/^(what|whats|where|wheres|who|whos) /i, "")
+           .gsub(question_words, "")
            .gsub(/^(is|are|was|were) /, "")
            .gsub(/^(the|a|an) /i, "")
            .gsub(/\?+$/, "")
@@ -223,6 +223,10 @@ def is_correct_answer?(correct, answer)
   similarity = white.similarity(correct, answer)
   puts "[LOG] Correct answer: #{correct} | User answer: #{answer} | Similarity: #{similarity}"
   correct == answer || similarity >= ENV["SIMILARITY_THRESHOLD"].to_f
+end
+
+def question_words
+  /^(what|whats|where|wheres|who|whos|when|whens|why|whys|how|hows) /i
 end
 
 # Marks question as answered by:
