@@ -50,9 +50,9 @@ post "/" do
       response = respond_with_user_score(params[:user_id])
     elsif params[:text].match(/^help$/i)
       response = respond_with_help
-    elsif params[:text].match(/^show (me\s+)?(the\s+)?leaderboard$/i)
+    elsif params[:text].match(/^(show\s+)?(me\s+)?(the\s+)?leaderboard$/i)
       response = respond_with_leaderboard
-    elsif params[:text].match(/^show (me\s+)?(the\s+)?loserboard$/i)
+    elsif params[:text].match(/^(show\s+)?(me\s+)?(the\s+)?loserboard$/i)
       response = respond_with_loserboard
     else
       response = process_answer(params)
