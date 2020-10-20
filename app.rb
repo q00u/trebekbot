@@ -46,6 +46,8 @@ post "/" do
       response = "Sorry, can't play in this channel."
     elsif params[:text].match(/^jeopard(y|ize) me/i)
       response = respond_with_question(params)
+    elsif params[:text].match(/^reset my score$/i)
+      response = respond_with_reset_score
     elsif params[:text].match(/my score$/i)
       response = respond_with_user_score(params[:user_id])
     elsif params[:text].match(/^help$/i)
@@ -54,8 +56,6 @@ post "/" do
       response = respond_with_leaderboard
     elsif params[:text].match(/^(show\s+)?(me\s+)?(the\s+)?loserboard$/i)
       response = respond_with_loserboard
-    elsif params[:text].match(/^reset my score$/i)
-      response = respond_with_reset_score
     else
       response = process_answer(params)
     end
