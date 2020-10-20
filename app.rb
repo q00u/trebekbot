@@ -54,6 +54,8 @@ post "/" do
       response = respond_with_leaderboard
     elsif params[:text].match(/^(show\s+)?(me\s+)?(the\s+)?loserboard$/i)
       response = respond_with_loserboard
+    elsif params[:text].match(/^reset my score$/i)
+      response = respond_with_reset_score
     else
       response = process_answer(params)
     end
@@ -248,6 +250,18 @@ end
 def respond_with_user_score(user_id)
   user_score = get_user_score(user_id)
   "#{get_slack_name(user_id)}, your score is #{currency_format(user_score)}."
+end
+
+# Resets the requesting user's score to 0
+#
+def respond_with_reset_score
+  user_id = params[:user_id]
+  user_name = get_slack_name(user_id, { :use_real_name => true })
+  old_score = get_user_score(user_id)
+  key = "user_score:#{user_id}"
+  $redis.set(key, 0)
+
+  response = "#{user_name}, your score was #{currency_format(old_score)}, and is now reset to #{currency_format(0)}"
 end
 
 # Gets the given user's score from redis
