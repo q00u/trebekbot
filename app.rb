@@ -44,15 +44,17 @@ post "/" do
       response = "Invalid token"
     elsif is_channel_blacklisted?(params[:channel_name])
       response = "Sorry, can't play in this channel."
-    elsif params[:text].match(/^jeopardy me/i)
+    elsif params[:text].match(/^jeopard(y|ize) me/i)
       response = respond_with_question(params)
+    elsif params[:text].match(/^reset my score$/i)
+      response = respond_with_reset_score
     elsif params[:text].match(/my score$/i)
       response = respond_with_user_score(params[:user_id])
     elsif params[:text].match(/^help$/i)
       response = respond_with_help
-    elsif params[:text].match(/^show (me\s+)?(the\s+)?leaderboard$/i)
+    elsif params[:text].match(/^(show\s+)?(me\s+)?(the\s+)?leaderboard$/i)
       response = respond_with_leaderboard
-    elsif params[:text].match(/^show (me\s+)?(the\s+)?loserboard$/i)
+    elsif params[:text].match(/^(show\s+)?(me\s+)?(the\s+)?loserboard$/i)
       response = respond_with_loserboard
     elsif params[:text].match(/^show (me\s+)?(the\s+)?categories$/i)
       response = respond_with_categories
@@ -227,7 +229,7 @@ end
 # (I don't care if there's no question mark)
 # 
 def is_question_format?(answer)
-  answer.gsub(/[^\w\s]/i, "").match(/^(what|whats|where|wheres|who|whos) /i)
+  answer.gsub(/[^\w\s]/i, "").match(question_words)
 end
 
 # Checks if the user answer matches the correct answer.
@@ -247,7 +249,7 @@ def is_correct_answer?(correct, answer)
   answer = answer
            .gsub(/\s+(&nbsp;|&)\s+/i, " and ")
            .gsub(/[^\w\s]/i, "")
-           .gsub(/^(what|whats|where|wheres|who|whos) /i, "")
+           .gsub(question_words, "")
            .gsub(/^(is|are|was|were) /, "")
            .gsub(/^(the|a|an) /i, "")
            .gsub(/\?+$/, "")
@@ -257,6 +259,10 @@ def is_correct_answer?(correct, answer)
   similarity = white.similarity(correct, answer)
   puts "[LOG] Correct answer: #{correct} | User answer: #{answer} | Similarity: #{similarity}"
   correct == answer || similarity >= ENV["SIMILARITY_THRESHOLD"].to_f
+end
+
+def question_words
+  /^(what|whats|where|wheres|who|whos|when|whens|why|whys|how|hows) /i
 end
 
 # Marks question as answered by:
@@ -278,6 +284,18 @@ end
 def respond_with_user_score(user_id)
   user_score = get_user_score(user_id)
   "#{get_slack_name(user_id)}, your score is #{currency_format(user_score)}."
+end
+
+# Resets the requesting user's score to 0
+#
+def respond_with_reset_score
+  user_id = params[:user_id]
+  user_name = get_slack_name(user_id, { :use_real_name => true })
+  old_score = get_user_score(user_id)
+  key = "user_score:#{user_id}"
+  $redis.set(key, 0)
+
+  response = "#{user_name}, your score was #{currency_format(old_score)}, and is now reset to #{currency_format(0)}"
 end
 
 # Gets the given user's score from redis
