@@ -44,16 +44,22 @@ post "/" do
       response = "Invalid token"
     elsif is_channel_blacklisted?(params[:channel_name])
       response = "Sorry, can't play in this channel."
-    elsif params[:text].match(/^jeopardy me/i)
+    elsif params[:text].match(/^jeopard(y|ize) me/i)
       response = respond_with_question(params)
+    elsif params[:text].match(/^reset my score$/i)
+      response = respond_with_reset_score
     elsif params[:text].match(/my score$/i)
       response = respond_with_user_score(params[:user_id])
     elsif params[:text].match(/^help$/i)
       response = respond_with_help
-    elsif params[:text].match(/^show (me\s+)?(the\s+)?leaderboard$/i)
+    elsif params[:text].match(/^(show\s+)?(me\s+)?(the\s+)?leaderboard$/i)
       response = respond_with_leaderboard
-    elsif params[:text].match(/^show (me\s+)?(the\s+)?loserboard$/i)
+    elsif params[:text].match(/^(show\s+)?(me\s+)?(the\s+)?loserboard$/i)
       response = respond_with_loserboard
+    elsif params[:text].match(/^show (me\s+)?(the\s+)?categories$/i)
+      response = respond_with_categories
+    elsif matches = params[:text].match(/^I.ll take (.*)/i)
+      response = respond_with_question(params, matches[1])
     else
       response = process_answer(params)
     end
@@ -86,11 +92,11 @@ end
 # speaks the category, value, and the new question, and shushes the bot for 5 seconds
 # (this is so two or more users can't do `jeopardy me` within 5 seconds of each other.)
 # 
-def respond_with_question(params)
+def respond_with_question(params, category = nil)
   channel_id = params[:channel_id]
   question = ""
   unless $redis.exists("shush:question:#{channel_id}")
-    response = get_question
+    response = get_question category
     key = "current_question:#{channel_id}"
     previous_question = $redis.get(key)
     if !previous_question.nil?
@@ -102,6 +108,7 @@ def respond_with_question(params)
     $redis.pipelined do
       $redis.set(key, response.to_json)
       $redis.setex("shush:question:#{channel_id}", 10, "true")
+      $redis.set("category:#{response['category']['title']}", "#{response['category'].to_json}")
     end
   end
   question
@@ -114,8 +121,15 @@ end
 # If there's HTML in the answer, sanitizes it (otherwise it won't match the user answer)
 # Adds an "expiration" value, which is the timestamp of the Slack request + the seconds to answer config var
 # 
-def get_question
-  uri = "http://jservice.io/api/random?count=1"
+def get_question(category_key = nil)
+	if !category_key.nil? && data = $redis.get("category:#{category_key}")
+		category = JSON.parse(data)
+		offset = rand(category['clues_count'])
+    uri = "http://jservice.io/api/clues?category=#{category['id']}&offset=#{offset}"
+  else
+    uri = "http://jservice.io/api/random?count=1"
+  end
+  puts "[LOG] #{uri}"
   request = HTTParty.get(uri)
   puts "[LOG] #{request.body}"
   response = JSON.parse(request.body).first
@@ -126,6 +140,26 @@ def get_question
   response["value"] = 200 if response["value"].nil?
   response["answer"] = Sanitize.fragment(response["answer"].gsub(/\s+(&nbsp;|&)\s+/i, " and "))
   response["expiration"] = params["timestamp"].to_f + ENV["SECONDS_TO_ANSWER"].to_f
+  response
+end
+
+# Puts together the response to a request for categories:
+#
+def respond_with_categories
+	max_category = 18418
+  uri = "http://jservice.io/api/categories?count=5&offset=#{1+rand(max_category/5)}"
+  request = HTTParty.get(uri)
+  puts "[LOG] #{request.body}"
+
+  category_titles = []
+  data = JSON.parse(request.body)
+  data.each do |child|
+    category_titles << child['title']
+    key = "category:#{child['title']}"
+    $redis.set(key, child.to_json)
+  end
+  response = "Wonderful. Let's take a look at the categories. They are: `"
+  response += category_titles.join("`, `") + "`."
   response
 end
 
@@ -195,7 +229,7 @@ end
 # (I don't care if there's no question mark)
 # 
 def is_question_format?(answer)
-  answer.gsub(/[^\w\s]/i, "").match(/^(what|whats|where|wheres|who|whos) /i)
+  answer.gsub(/[^\w\s]/i, "").match(question_words)
 end
 
 # Checks if the user answer matches the correct answer.
@@ -215,7 +249,7 @@ def is_correct_answer?(correct, answer)
   answer = answer
            .gsub(/\s+(&nbsp;|&)\s+/i, " and ")
            .gsub(/[^\w\s]/i, "")
-           .gsub(/^(what|whats|where|wheres|who|whos) /i, "")
+           .gsub(question_words, "")
            .gsub(/^(is|are|was|were) /, "")
            .gsub(/^(the|a|an) /i, "")
            .gsub(/\?+$/, "")
@@ -225,6 +259,10 @@ def is_correct_answer?(correct, answer)
   similarity = white.similarity(correct, answer)
   puts "[LOG] Correct answer: #{correct} | User answer: #{answer} | Similarity: #{similarity}"
   correct == answer || similarity >= ENV["SIMILARITY_THRESHOLD"].to_f
+end
+
+def question_words
+  /^(what|whats|where|wheres|who|whos|when|whens|why|whys|how|hows) /i
 end
 
 # Marks question as answered by:
@@ -246,6 +284,18 @@ end
 def respond_with_user_score(user_id)
   user_score = get_user_score(user_id)
   "#{get_slack_name(user_id)}, your score is #{currency_format(user_score)}."
+end
+
+# Resets the requesting user's score to 0
+#
+def respond_with_reset_score
+  user_id = params[:user_id]
+  user_name = get_slack_name(user_id, { :use_real_name => true })
+  old_score = get_user_score(user_id)
+  key = "user_score:#{user_id}"
+  $redis.set(key, 0)
+
+  response = "#{user_name}, your score was #{currency_format(old_score)}, and is now reset to #{currency_format(0)}"
 end
 
 # Gets the given user's score from redis
@@ -431,6 +481,8 @@ def respond_with_help
   reply = <<help
 Type `#{ENV["BOT_USERNAME"]} jeopardy me` to start a new round of Slack Jeopardy. I will pick the category and price. Anyone in the channel can respond.
 Type `#{ENV["BOT_USERNAME"]} [what|where|who] [is|are] [answer]?` to respond to the active round. You have #{ENV["SECONDS_TO_ANSWER"]} seconds to answer. Remember, responses must be in the form of a question, e.g. `#{ENV["BOT_USERNAME"]} what is dirt?`.
+Type `#{ENV["BOT_USERNAME"]} show the categories` to see a list of 5 categories to choose.
+Type `#{ENV["BOT_USERNAME"]} I'll take [category]` start a new round with a specific category. I will pick the price.
 Type `#{ENV["BOT_USERNAME"]} what is my score` to see your current score.
 Type `#{ENV["BOT_USERNAME"]} show the leaderboard` to see the top scores.
 Type `#{ENV["BOT_USERNAME"]} show the loserboard` to see the bottom scores.
