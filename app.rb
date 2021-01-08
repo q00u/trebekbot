@@ -156,19 +156,19 @@ def process_answer(params)
       reply = "You had your chance, #{get_slack_name(user_id)}. Let someone else answer."
     elsif params["timestamp"].to_f > current_question["expiration"]
       if is_correct_answer?(current_answer, user_answer)
-        is_exact = current_answer == user_answer
+        is_exact = is_exactly_correct_answer?(current_answer, user_answer)
         reply = "#{is_exact ? 'That is correct' : 'We would have accepted that'}, #{get_slack_name(user_id)}, but time's up! #{is_exact ? '' : "The full answer we were looking for is `#{current_answer}`. "}Remember, you have #{ENV["SECONDS_TO_ANSWER"]} seconds to answer."
       else
         reply = "Time's up, #{get_slack_name(user_id)}! Remember, you have #{ENV["SECONDS_TO_ANSWER"]} seconds to answer. The correct answer was `#{current_answer}`."
       end
       mark_question_as_answered(params[:channel_id])
     elsif is_question_format?(user_answer) && is_correct_answer?(current_answer, user_answer)
-      is_exact = current_answer == user_answer
+      is_exact = is_exactly_correct_answer?(current_answer, user_answer)
       score = update_score(user_id, current_question["value"])
       reply = "#{is_exact ? 'That is correct' : "We'll accept that"}, #{get_slack_name(user_id)}. #{is_exact ? '' : "The full answer we were looking for is `#{current_answer}`. "}Your total score is #{currency_format(score)}."
       mark_question_as_answered(params[:channel_id])
     elsif is_correct_answer?(current_answer, user_answer)
-      is_exact = current_answer == user_answer
+      is_exact = is_exactly_correct_answer?(current_answer, user_answer)
       score = update_score(user_id, (current_question["value"] * -1))
       reply = "#{is_exact ? 'That is correct' : 'We would have accepted that'}, #{get_slack_name(user_id)}, but responses have to be in the form of a question. Your total score is #{currency_format(score)}."
       $redis.setex(answered_key, ENV["SECONDS_TO_ANSWER"], "true")
@@ -228,6 +228,25 @@ def is_correct_answer?(correct, answer)
   similarity = white.similarity(correct, answer)
   puts "[LOG] Correct answer: #{correct} | User answer: #{answer} | Similarity: #{similarity}"
   correct == answer || similarity >= ENV["SIMILARITY_THRESHOLD"].to_f
+end
+
+# Like is_correct_answer? but only checks for exact matches for the purposes of copy changes
+#
+def is_exactly_correct_answer?(correct, answer)
+  correct = correct.gsub(/[^\w\s]/i, "")
+            .gsub(/^(the|a|an) /i, "")
+            .strip
+            .downcase
+  answer = answer
+           .gsub(/\s+(&nbsp;|&)\s+/i, " and ")
+           .gsub(/[^\w\s]/i, "")
+           .gsub(question_words, "")
+           .gsub(/^(is|are|was|were) /, "")
+           .gsub(/^(the|a|an) /i, "")
+           .gsub(/\?+$/, "")
+           .strip
+           .downcase
+  correct == answer
 end
 
 def question_words
