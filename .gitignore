@@ -1,3 +1,5 @@
 .DS_Store
 .env
 dump.rdb
+/.rubocop.yml
+/.rubocop_todo.yml
