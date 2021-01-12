@@ -62,6 +62,8 @@ post '/' do
                  respond_with_categories
                elsif (matches = params[:text].match(/^I.ll take (.*)/i))
                  respond_with_question(params, matches[1])
+               elsif (matches = params[:text].match(/^Give me (.*)/i))
+                 respond_with_question(params, matches[1])
                else
                  process_answer(params)
                end
