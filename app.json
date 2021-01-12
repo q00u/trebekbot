@@ -44,7 +44,7 @@
     "QUESTION_SUBSTRING_BLACKLIST": {
       "description": "Comma-separated list of strings which indicate a question containing any of these should be ignored.",
       "required": false,
-      "value": "seen here,depicted here,heard here,[audio clue]"
+      "value": "seen here,depicted here,heard here,[audio clue],2 of the 5"
     }
   }
 }

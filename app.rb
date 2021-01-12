@@ -197,19 +197,19 @@ def process_answer(params)
     if $redis.exists(answered_key)
       reply = "You had your chance, #{get_slack_name(user_id)}. Let someone else answer."
     elsif params['timestamp'].to_f > current_question['expiration']
-      if is_correct_answer?(h_current_answer, h_user_answer)
+      if correct_answer?(h_current_answer, h_user_answer)
         is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
         reply = "#{is_exact ? 'That is correct' : 'We would have accepted that'}, #{get_slack_name(user_id)}, but time's up! #{is_exact ? '' : "The full answer we were looking for is `#{current_answer}`. "}Remember, you have #{ENV['SECONDS_TO_ANSWER']} seconds to answer."
       else
         reply = "Time's up, #{get_slack_name(user_id)}! Remember, you have #{ENV['SECONDS_TO_ANSWER']} seconds to answer. The correct answer was `#{current_answer}`."
       end
       mark_question_as_answered(params[:channel_id])
-    elsif is_question_format?(h_user_answer) && is_correct_answer?(h_current_answer, h_user_answer)
+    elsif question_format?(h_user_answer) && correct_answer?(h_current_answer, h_user_answer)
       is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
       score = update_score(user_id, current_question['value'])
       reply = "#{is_exact ? 'That is correct' : "We'll accept that"}, #{get_slack_name(user_id)}. #{is_exact ? '' : "The full answer we were looking for is `#{current_answer}`. "}Your total score is #{currency_format(score)}."
       mark_question_as_answered(params[:channel_id])
-    elsif is_correct_answer?(h_current_answer, h_user_answer)
+    elsif correct_answer?(h_current_answer, h_user_answer)
       is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
       score = update_score(user_id, (current_question['value'] * -1))
       reply = "#{is_exact ? 'That is correct' : 'We would have accepted that'}, #{get_slack_name(user_id)}, but responses have to be in the form of a question. Your total score is #{currency_format(score)}."
@@ -310,7 +310,7 @@ def correct_answer?(correct, answer)
   false
 end
 
-# Like is_correct_answer? but only checks for exact matches for the purposes of copy changes
+# Like correct_answer? but only checks for exact matches for the purposes of copy changes
 #
 def exactly_correct_answer?(correct, answer)
   correct = correct.gsub(/[^\w\s]/i, '')
