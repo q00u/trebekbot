@@ -7,6 +7,7 @@ require 'redis'
 require 'dotenv'
 require 'text'
 require 'sanitize'
+require 'humanize'
 
 configure do
   # Load .env vars
@@ -189,25 +190,27 @@ def process_answer(params)
   else
     current_question = JSON.parse(current_question)
     current_answer = current_question['answer']
+    h_current_answer = humanize_numbers(current_answer)
     user_answer = params[:text]
+    h_user_answer = humanize_numbers(user_answer)
     answered_key = "user_answer:#{channel_id}:#{current_question['id']}:#{user_id}"
     if $redis.exists(answered_key)
       reply = "You had your chance, #{get_slack_name(user_id)}. Let someone else answer."
     elsif params['timestamp'].to_f > current_question['expiration']
-      if is_correct_answer?(current_answer, user_answer)
-        is_exact = exactly_correct_answer?(current_answer, user_answer)
+      if is_correct_answer?(h_current_answer, h_user_answer)
+        is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
         reply = "#{is_exact ? 'That is correct' : 'We would have accepted that'}, #{get_slack_name(user_id)}, but time's up! #{is_exact ? '' : "The full answer we were looking for is `#{current_answer}`. "}Remember, you have #{ENV['SECONDS_TO_ANSWER']} seconds to answer."
       else
         reply = "Time's up, #{get_slack_name(user_id)}! Remember, you have #{ENV['SECONDS_TO_ANSWER']} seconds to answer. The correct answer was `#{current_answer}`."
       end
       mark_question_as_answered(params[:channel_id])
-    elsif is_question_format?(user_answer) && is_correct_answer?(current_answer, user_answer)
-      is_exact = exactly_correct_answer?(current_answer, user_answer)
+    elsif is_question_format?(h_user_answer) && is_correct_answer?(h_current_answer, h_user_answer)
+      is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
       score = update_score(user_id, current_question['value'])
       reply = "#{is_exact ? 'That is correct' : "We'll accept that"}, #{get_slack_name(user_id)}. #{is_exact ? '' : "The full answer we were looking for is `#{current_answer}`. "}Your total score is #{currency_format(score)}."
       mark_question_as_answered(params[:channel_id])
-    elsif is_correct_answer?(current_answer, user_answer)
-      is_exact = exactly_correct_answer?(current_answer, user_answer)
+    elsif is_correct_answer?(h_current_answer, h_user_answer)
+      is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
       score = update_score(user_id, (current_question['value'] * -1))
       reply = "#{is_exact ? 'That is correct' : 'We would have accepted that'}, #{get_slack_name(user_id)}, but responses have to be in the form of a question. Your total score is #{currency_format(score)}."
       $redis.setex(answered_key, ENV['SECONDS_TO_ANSWER'], 'true')
@@ -218,6 +221,37 @@ def process_answer(params)
     end
   end
   reply
+end
+
+# Checks if a word is actually a numeral
+#
+def regex_is_number?(string)
+  no_commas = string.gsub(',', '')
+  matches = no_commas.match(/-?\d+(?:\.\d+)?/)
+  if !matches.nil? && matches.size == 1 && matches[0] == no_commas
+    true
+  else
+    false
+  end
+end
+
+# Converts all numerals in a string to humanized words
+# For example, `Top 40` becomes `Top forty`
+#
+def humanize_numbers(raw_string)
+  arr = raw_string.split
+  arr.each_with_index do |word, index|
+    next unless regex_is_number?(word)
+
+    arr[index] = if word.include? '.'
+                   word.delete(',').to_f.humanize
+                 else
+                   word.delete(',').to_i.humanize
+                 end
+    puts word
+    puts arr[index]
+  end
+  arr.join(' ')
 end
 
 # Formats a number as currency.
