@@ -141,7 +141,7 @@ def get_question(category_key = nil)
   response = JSON.parse(request.body).first
   question = response['question']
   if question.nil? || question.strip == '' || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
-       question.include?(phrase)
+       question.downcase.include?(phrase.downcase)
      end
     response = get_question
   end
