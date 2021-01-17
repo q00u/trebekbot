@@ -183,7 +183,7 @@ def get_question(category_key = nil)
   response
 end
 
-# For debugging. Gets a question from a category, ignoring current category list. (value is 0)
+# For debugging. Gets a question from a category, specified by category ID number. (value is 0)
 # Gets a random answer from the jService API, and does some cleanup on it:
 # If the question is not present, requests another one
 # If the question contains a blacklisted substring, request another one
@@ -193,15 +193,22 @@ end
 #
 def get_debug_question(category_key = nil)
   if !category_key.nil?
-    category = JSON.parse(data)
+    puts "[DBUG LOG] CATEGORY: #{category_key}"
+    request = HTTParty.get("http://jservice.io/api/clues?category=#{category_key}")
+    data = JSON.parse(request.body)
+    category = data.first['category']
+    # puts "[DEBUG LOG] DATA: #{data.first}"
+    puts "[DEBUG LOG] CATEGORY TITLE: #{category['title']}"
+    puts "[DEBUG LOG] CLUES_COUNT: #{category['clues_count']}"
+    # category = JSON.parse(data)
     offset = rand(category['clues_count'])
     uri = "http://jservice.io/api/clues?category=#{category['id']}&offset=#{offset}"
   else
     uri = 'http://jservice.io/api/random?count=1'
   end
-  puts "[LOG] #{uri}"
+  puts "[DEBUG LOG] #{uri}"
   request = HTTParty.get(uri)
-  puts "[LOG] #{request.body}"
+  puts "[DEBUG LOG] #{request.body}"
   response = JSON.parse(request.body).first
   question = response['question']
   if question.nil? || question.strip == '' || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
