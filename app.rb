@@ -292,8 +292,7 @@ def correct_answer?(correct, answer)
                    .downcase
 
   correct_no_parenthetical = correct.gsub(/\(.*\)/, '').gsub(/[^\w\s]/i, '').strip
-  correct_only_parenthetical = correct[/.*\(([^)]*)\)/, 1].gsub(/[^\w\s]/i, '').strip
-  correct_only_parenthetical_deacronymed = correct_only_parenthetical.gsub(/\./, '').strip
+  correct_only_parenthetical = correct[/.*\(([^)]*)\)/, 1].to_s.gsub(/[^\w\s]/i, '').strip
   correct_sanitized = correct.gsub(/[^\w\s]/i, '').strip
 
   answer = answer
@@ -306,7 +305,7 @@ def correct_answer?(correct, answer)
            .strip
            .downcase
 
-  [correct_sanitized, correct_no_parenthetical, correct_only_parenthetical, correct_only_parenthetical_deacronymed].each do |solution|
+  [correct_sanitized, correct_no_parenthetical, correct_only_parenthetical].each do |solution|
     white = Text::WhiteSimilarity.new
     similarity = white.similarity(solution, answer)
     puts "[LOG] Correct answer: #{solution} | User answer: #{answer} | Similarity: #{similarity}"
