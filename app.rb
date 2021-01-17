@@ -292,7 +292,7 @@ def correct_answer?(correct, answer)
                    .downcase
 
   correct_no_parenthetical = correct.gsub(/\(.*\)/, '').gsub(/[^\w\s]/i, '').strip
-  correct_only_parenthetical = correct[/.*\(([^)]*)\)/,1].gsub(/[^\w\s]/i, '').strip
+  correct_only_parenthetical = correct[/.*\(([^)]*)\)/, 1].gsub(/[^\w\s]/i, '').strip
   correct_only_parenthetical_deacronymed = correct_only_parenthetical.gsub(/\./, '').strip
   correct_sanitized = correct.gsub(/[^\w\s]/i, '').strip
 
