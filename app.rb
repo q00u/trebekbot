@@ -282,8 +282,9 @@ end
 # Strips leading/trailing whitespace and downcases.
 # Finally, if the match is not exact, uses White similarity algorithm for "fuzzy" matching,
 # to account for typos, etc.
-# Checks both the sanitized correct, and correct with parentheticals removed, e.g.
-# "The Pope (Benedict XVI)" checks answer against "pope benedict xvi" and "pope"
+# Checks the sanitized correct, the correct with parentheticals removed, and only the parentheticals
+# e.g.
+# "The Pope (Benedict XVI)" checks answer against "pope benedict xvi" and "pope" and "benedict xvi"
 #
 def correct_answer?(correct, answer)
   correct = correct.gsub(/^(the|a|an) /i, '')
@@ -291,7 +292,9 @@ def correct_answer?(correct, answer)
                    .downcase
 
   correct_no_parenthetical = correct.gsub(/\(.*\)/, '').gsub(/[^\w\s]/i, '').strip
-  correct_sanitized = correct.gsub(/[^\w\s]/i, '')
+  correct_only_parenthetical = correct[/.*\(([^)]*)\)/,1].gsub(/[^\w\s]/i, '').strip
+  correct_only_parenthetical_deacronymed = correct_only_parenthetical.gsub(/\./, '').strip
+  correct_sanitized = correct.gsub(/[^\w\s]/i, '').strip
 
   answer = answer
            .gsub(/\s+(&nbsp;|&)\s+/i, ' and ')
@@ -303,7 +306,7 @@ def correct_answer?(correct, answer)
            .strip
            .downcase
 
-  [correct_sanitized, correct_no_parenthetical].each do |solution|
+  [correct_sanitized, correct_no_parenthetical, correct_only_parenthetical, correct_only_parenthetical_deacronymed].each do |solution|
     white = Text::WhiteSimilarity.new
     similarity = white.similarity(solution, answer)
     puts "[LOG] Correct answer: #{solution} | User answer: #{answer} | Similarity: #{similarity}"
