@@ -171,9 +171,10 @@ def get_question(category_key = nil)
   puts "[LOG] #{request.body}"
   response = JSON.parse(request.body).first
   question = response['question']
-  if question.nil? || question.strip == '' || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
+  if question.nil? || question.strip == '' || !question['invalid_count'].nil? || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
        question.downcase.include?(phrase.downcase)
      end
+    puts '[LOG] Finding a new question'
     response = get_question
     # response = get_question(category_key)
   end
@@ -211,9 +212,10 @@ def get_debug_question(category_key = nil)
   puts "[DEBUG LOG] #{request.body}"
   response = JSON.parse(request.body).first
   question = response['question']
-  if question.nil? || question.strip == '' || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
+  if question.nil? || question.strip == '' || !question['invalid_count'].nil? || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
        question.downcase.include?(phrase.downcase)
      end
+    puts '[DEBUG LOG] Finding a new question'
     response = get_debug_question
     # response = get_debug_question(category_key)
   end
