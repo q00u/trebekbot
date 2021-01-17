@@ -101,7 +101,7 @@ end
 def respond_with_question(params, category = nil)
   channel_id = params[:channel_id]
   question = ''
-  unless $redis.exists("shush:question:#{channel_id}")
+  unless $redis.exists?("shush:question:#{channel_id}")
     response = get_question category
     key = "current_question:#{channel_id}"
     previous_question = $redis.get(key)
@@ -188,7 +188,7 @@ def process_answer(params)
   current_question = $redis.get(key)
   reply = ''
   if current_question.nil?
-    reply = trebek_me unless $redis.exists("shush:answer:#{channel_id}")
+    reply = trebek_me unless $redis.exists?("shush:answer:#{channel_id}")
   else
     current_question = JSON.parse(current_question)
     current_answer = current_question['answer']
@@ -196,7 +196,7 @@ def process_answer(params)
     user_answer = params[:text]
     h_user_answer = humanize_numbers(user_answer)
     answered_key = "user_answer:#{channel_id}:#{current_question['id']}:#{user_id}"
-    if $redis.exists(answered_key)
+    if $redis.exists?(answered_key)
       reply = "You had your chance, #{get_slack_name(user_id)}. Let someone else answer."
     elsif params['timestamp'].to_f > current_question['expiration']
       if correct_answer?(h_current_answer, h_user_answer)
