@@ -174,7 +174,7 @@ def get_question(category_key = nil)
   if question.nil? || question.strip == '' || !question['invalid_count'].nil? || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
        question.downcase.include?(phrase.downcase)
      end
-    puts 'Finding a new question'
+    puts '[LOG] Finding a new question'
     response = get_question
     # response = get_question(category_key)
   end
@@ -215,7 +215,7 @@ def get_debug_question(category_key = nil)
   if question.nil? || question.strip == '' || !question['invalid_count'].nil? || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
        question.downcase.include?(phrase.downcase)
      end
-    puts 'Finding a new question'
+    puts '[DEBUG LOG] Finding a new question'
     response = get_debug_question
     # response = get_debug_question(category_key)
   end
