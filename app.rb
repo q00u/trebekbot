@@ -64,6 +64,8 @@ post '/' do
                  respond_with_question(params, matches[1])
                elsif (matches = params[:text].match(/^Give me (.*)/i))
                  respond_with_question(params, matches[1])
+               elsif (matches = params[:text].match(/^debug (.*)/i))
+                 respond_with_debug_question(params, matches[1])
                else
                  process_answer(params)
                end
@@ -120,6 +122,35 @@ def respond_with_question(params, category = nil)
   question
 end
 
+# For debugging. Question value is 0, but categories can be specified.
+# Puts together the response to a request to start a new round (`jeopardy me`):
+# If the bot has been "shushed", says nothing.
+# Otherwise, speaks the answer to the previous round (if any),
+# speaks the category, value, and the new question, and shushes the bot for 5 seconds
+# (this is so two or more users can't do `jeopardy me` within 5 seconds of each other.)
+#
+def respond_with_debug_question(params, category = nil)
+  channel_id = params[:channel_id]
+  question = ''
+  unless $redis.exists?("shush:question:#{channel_id}")
+    response = get_debug_question category
+    key = "current_question:#{channel_id}"
+    previous_question = $redis.get(key)
+    unless previous_question.nil?
+      previous_question = JSON.parse(previous_question)['answer']
+      question = "The answer is `#{previous_question}`.\n"
+    end
+    question += "The category is `#{response['category']['title']}` for #{currency_format(response['value'])}: `#{response['question']}`"
+    puts "[LOG] ID: #{response['id']} | Category: #{response['category']['title']} | Question: #{response['question']} | Answer: #{response['answer']} | Value: #{response['value']}"
+    $redis.pipelined do
+      $redis.set(key, response.to_json)
+      $redis.setex("shush:question:#{channel_id}", 10, 'true')
+      $redis.set("category:#{response['category']['title']}", response['category'].to_json.to_s)
+    end
+  end
+  question
+end
+
 # Gets a random answer from the jService API, and does some cleanup on it:
 # If the question is not present, requests another one
 # If the question contains a blacklisted substring, request another one
@@ -144,8 +175,49 @@ def get_question(category_key = nil)
        question.downcase.include?(phrase.downcase)
      end
     response = get_question
+    # response = get_question(category_key)
   end
   response['value'] = 200 if response['value'].nil?
+  response['answer'] = Sanitize.fragment(response['answer'].gsub(/\s+(&nbsp;|&)\s+/i, ' and '))
+  response['expiration'] = params['timestamp'].to_f + ENV['SECONDS_TO_ANSWER'].to_f
+  response
+end
+
+# For debugging. Gets a question from a category, specified by category ID number. (value is 0)
+# Gets a random answer from the jService API, and does some cleanup on it:
+# If the question is not present, requests another one
+# If the question contains a blacklisted substring, request another one
+# If the answer doesn't have a value, sets a default of $200
+# If there's HTML in the answer, sanitizes it (otherwise it won't match the user answer)
+# Adds an "expiration" value, which is the timestamp of the Slack request + the seconds to answer config var
+#
+def get_debug_question(category_key = nil)
+  if !category_key.nil?
+    puts "[DBUG LOG] CATEGORY: #{category_key}"
+    request = HTTParty.get("http://jservice.io/api/clues?category=#{category_key}")
+    data = JSON.parse(request.body)
+    category = data.first['category']
+    # puts "[DEBUG LOG] DATA: #{data.first}"
+    puts "[DEBUG LOG] CATEGORY TITLE: #{category['title']}"
+    puts "[DEBUG LOG] CLUES_COUNT: #{category['clues_count']}"
+    # category = JSON.parse(data)
+    offset = rand(category['clues_count'])
+    uri = "http://jservice.io/api/clues?category=#{category['id']}&offset=#{offset}"
+  else
+    uri = 'http://jservice.io/api/random?count=1'
+  end
+  puts "[DEBUG LOG] #{uri}"
+  request = HTTParty.get(uri)
+  puts "[DEBUG LOG] #{request.body}"
+  response = JSON.parse(request.body).first
+  question = response['question']
+  if question.nil? || question.strip == '' || ENV['QUESTION_SUBSTRING_BLACKLIST'].split(',').any? do |phrase|
+       question.downcase.include?(phrase.downcase)
+     end
+    response = get_debug_question
+    # response = get_debug_question(category_key)
+  end
+  response['value'] = 0
   response['answer'] = Sanitize.fragment(response['answer'].gsub(/\s+(&nbsp;|&)\s+/i, ' and '))
   response['expiration'] = params['timestamp'].to_f + ENV['SECONDS_TO_ANSWER'].to_f
   response
