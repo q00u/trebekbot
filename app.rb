@@ -266,7 +266,7 @@ def process_answer(params)
     elsif params['timestamp'].to_f > current_question['expiration']
       if correct_answer?(h_current_answer, h_user_answer)
         is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
-        reply = "#{is_exact ? 'That is correct' : 'We would have accepted that'}, #{get_slack_name(user_id)}, but time's up! #{is_exact ? '' : "The full answer we were looking for is `#{current_answer}`. "}Remember, you have #{ENV['SECONDS_TO_ANSWER']} seconds to answer."
+        reply = "#{is_exact ? 'That is correct' : 'We would have accepted that'}, #{get_slack_name(user_id)}, but time's up! #{is_exact ? '' : "The exact answer we were looking for is `#{current_answer}`. "}Remember, you have #{ENV['SECONDS_TO_ANSWER']} seconds to answer."
       else
         reply = "Time's up, #{get_slack_name(user_id)}! Remember, you have #{ENV['SECONDS_TO_ANSWER']} seconds to answer. The correct answer was `#{current_answer}`."
       end
@@ -274,7 +274,7 @@ def process_answer(params)
     elsif question_format?(h_user_answer) && correct_answer?(h_current_answer, h_user_answer)
       is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
       score = update_score(user_id, current_question['value'])
-      reply = "#{is_exact ? 'That is correct' : "We'll accept that"}, #{get_slack_name(user_id)}. #{is_exact ? '' : "The full answer we were looking for is `#{current_answer}`. "}Your total score is #{currency_format(score)}."
+      reply = "#{is_exact ? 'That is correct' : "We'll accept that"}, #{get_slack_name(user_id)}. #{is_exact ? '' : "The exact answer we were looking for is `#{current_answer}`. "}Your total score is #{currency_format(score)}."
       mark_question_as_answered(params[:channel_id])
     elsif correct_answer?(h_current_answer, h_user_answer)
       is_exact = exactly_correct_answer?(h_current_answer, h_user_answer)
