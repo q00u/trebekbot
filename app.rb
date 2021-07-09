@@ -193,7 +193,9 @@ end
 # Adds an "expiration" value, which is the timestamp of the Slack request + the seconds to answer config var
 #
 def get_debug_question(category_key = nil)
-  if !category_key.nil?
+  if category_key.nil?
+    uri = 'http://jservice.io/api/random?count=1'
+  else
     puts "[DBUG LOG] CATEGORY: #{category_key}"
     request = HTTParty.get("http://jservice.io/api/clues?category=#{category_key}")
     data = JSON.parse(request.body)
@@ -204,8 +206,6 @@ def get_debug_question(category_key = nil)
     # category = JSON.parse(data)
     offset = rand(category['clues_count'])
     uri = "http://jservice.io/api/clues?category=#{category['id']}&offset=#{offset}"
-  else
-    uri = 'http://jservice.io/api/random?count=1'
   end
   puts "[DEBUG LOG] #{uri}"
   request = HTTParty.get(uri)
@@ -541,10 +541,10 @@ def respond_with_leaderboard
       score = currency_format(get_user_score(user_id))
       leaders << "#{i + 1}. #{name}: #{score}"
     end
-    response = if !leaders.empty?
-                 "Let's take a look at the top scores:\n\n#{leaders.join("\n")}"
-               else
+    response = if leaders.empty?
                  'There are no scores yet!'
+               else
+                 "Let's take a look at the top scores:\n\n#{leaders.join("\n")}"
                end
     $redis.setex(key, 60 * 5, response)
   end
@@ -565,10 +565,10 @@ def respond_with_loserboard
       score = currency_format(get_user_score(user_id))
       leaders << "#{i + 1}. #{name}: #{score}"
     end
-    response = if !leaders.empty?
-                 "Let's take a look at the bottom scores:\n\n#{leaders.join("\n")}"
-               else
+    response = if leaders.empty?
                  'There are no scores yet!'
+               else
+                 "Let's take a look at the bottom scores:\n\n#{leaders.join("\n")}"
                end
     $redis.setex(key, 60 * 5, response)
   end
